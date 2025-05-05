@@ -1,0 +1,33 @@
+name: Deploy Flask App via Jump Host
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          # Scan and trust the jump host
+          ssh-keyscan cslabhub.cslab.moravian.edu >> ~/.ssh/known_hosts
+
+          # Trust all hosts to avoid host key checking errors for webapps
+          echo -e "Host webapps.cs.moravian.edu\n  StrictHostKeyChecking=no\n  UserKnownHostsFile=/dev/null" >> ~/.ssh/config
+
+      - name: Deploy via SSH through jump host
+        run: |
+          ssh -J web@cslabhub.cslab.moravian.edu __USERNAME__@webapps.cs.moravian.edu << 'EOF'
+            systemctl --user stop flask-app
+            cd ~/flask-app
+            git pull origin main
+            systemctl --user start flask-app
+          EOF
+
